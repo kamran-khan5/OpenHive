@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
 import { getUserByClerkId } from "@/actions/user.action";
 import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
@@ -32,16 +33,13 @@ async function Sidebar() {
   return (
     <aside className="sticky top-20 space-y-3">
       {/* ── Main profile card ── */}
-      <div className="glass-card px-5 py-5">
-        {/* Avatar + name block */}
+      <Card className="px-5 py-5">
         <div className="flex flex-col items-center text-center">
           <Link
             href={`/profile/${user.username}`}
             className="group relative mb-4"
           >
-            {/* Glow ring */}
             <span className="absolute -inset-1 rounded-full bg-gradient-to-br from-primary via-secondary to-primary opacity-40 blur-md group-hover:opacity-70 transition-opacity duration-500" />
-            {/* Dashed border ring */}
             <span className="absolute -inset-0.75 rounded-full border border-dashed border-primary/30 group-hover:border-primary/60 transition-colors duration-300" />
             <Avatar className="relative w-20 h-20 border-2 border-background shadow-xl">
               <AvatarImage
@@ -71,10 +69,8 @@ async function Sidebar() {
           )}
         </div>
 
-        {/* Divider */}
         <div className="my-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-        {/* Follow stats */}
         <div className="grid grid-cols-2 gap-2">
           <FollowStat
             icon={<UserCheckIcon className="w-3.5 h-3.5" />}
@@ -88,10 +84,8 @@ async function Sidebar() {
           />
         </div>
 
-        {/* Divider */}
         <div className="my-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-        {/* Location & website */}
         <div className="space-y-2">
           <MetaRow icon={<MapPinIcon className="w-3.5 h-3.5" />}>
             {user.location || (
@@ -113,10 +107,10 @@ async function Sidebar() {
             )}
           </MetaRow>
         </div>
-      </div>
+      </Card>
 
       {/* ── Activity card ── */}
-      <div className="glass-card px-5 py-4">
+      <Card className="px-5 py-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-3">
           Activity
         </p>
@@ -137,7 +131,7 @@ async function Sidebar() {
             value={user._count?.savedPosts ?? 0}
           />
         </div>
-      </div>
+      </Card>
     </aside>
   );
 }
@@ -211,8 +205,7 @@ function ActivityRow({
 
 const UnAuthenticatedSidebar = () => (
   <aside className="sticky top-20">
-    <div className="glass-card px-5 py-6">
-      {/* Icon mark */}
+    <Card className="px-5 py-6">
       <div className="flex justify-center mb-4">
         <div className="relative">
           <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 blur-lg" />
@@ -245,7 +238,6 @@ const UnAuthenticatedSidebar = () => (
         </SignInButton>
       </div>
 
-      {/* Social proof */}
       <div className="mt-4 flex items-center justify-center gap-2">
         <div className="flex -space-x-1.5">
           {[
@@ -263,6 +255,6 @@ const UnAuthenticatedSidebar = () => (
           Join thousands of members
         </p>
       </div>
-    </div>
+    </Card>
   </aside>
 );

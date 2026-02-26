@@ -53,12 +53,15 @@ model User {
 // ==========================================
 
 model Post {
-  id        String   @id @default(ulid())
-  authorId  String
-  content   String?
-  image     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(ulid())
+  authorId     String
+  content      String?
+  imageUrl     String?      // renamed from "image"
+  videoUrl     String?      // for videos
+  articleUrl   String?      // for shared articles
+  articleTitle String?      // optional title for articles
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments      Comment[]
