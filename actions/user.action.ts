@@ -162,3 +162,32 @@ export const toggleFollow = async (targetUserId: string) => {
     return { success: false, error: "Error toggling follow" };
   }
 };
+
+export async function getTopCreators(limit: number = 3) {
+  try {
+    const users = await prisma.user.findMany({
+      take: limit,
+      orderBy: {
+        followers: {
+          _count: "desc",
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        image: true,
+        _count: {
+          select: {
+            followers: true,
+          },
+        },
+      },
+    });
+
+    return users;
+  } catch (error) {
+    console.error("Error fetching top creators:", error);
+    return [];
+  }
+}

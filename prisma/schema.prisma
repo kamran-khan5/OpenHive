@@ -1,9 +1,5 @@
-// ==========================================
-// GENERATOR + DATASOURCE
-// ==========================================
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
 }
 
@@ -11,12 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
-// ==========================================
-// USER
-// ==========================================
-
 model User {
-  id        String   @id @default(ulid())
+  id        String   @id @default(cuid())
   email     String   @unique
   username  String   @unique
   clerkId   String   @unique
@@ -28,102 +20,63 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Content
-  posts         Post[]
-  comments      Comment[]
-  likes         Like[]
-  commentLikes  CommentLike[]
-  savedPosts    SavedPost[]
-
-  // Follow system
-  followers Follows[] @relation("following")
-  following Follows[] @relation("follower")
-
-  // Notifications
-  notificationsReceived Notification[] @relation("userNotifications")
-  notificationsCreated  Notification[] @relation("notificationCreator")
-
-  // Reports
-  reportsCreated  Report[] @relation("ReportCreator")
-  reportsReceived Report[] @relation("ReportTargetUser")
+  posts                Post[]
+  comments             Comment[]
+  commentLikes         CommentLike[]
+  followers            Follows[]      @relation("Follows_followingIdToUser")
+  following            Follows[]      @relation("Follows_followerIdToUser")
+  likes                Like[]
+  notifications        Notification[] @relation("Notification_userIdToUser")
+  createdNotifications Notification[] @relation("Notification_creatorIdToUser")
+  reportsMade          Report[]       @relation("Report_reporterIdToUser")
+  reportsReceived      Report[]       @relation("Report_userIdToUser")
+  savedPosts           SavedPost[]
 }
 
-// ==========================================
-// POST
-// ==========================================
-
 model Post {
-  id           String   @id @default(ulid())
+  id           String   @id @default(cuid())
   authorId     String
   content      String?
-  imageUrl     String?      // renamed from "image"
-  videoUrl     String?      // for videos
-  articleUrl   String?      // for shared articles
-  articleTitle String?      // optional title for articles
+  imageUrl     String?
+  videoUrl     String?
+  articleUrl   String?
+  articleTitle String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments      Comment[]
   likes         Like[]
-  savedBy       SavedPost[]
   notifications Notification[]
-  reports       Report[]       @relation("ReportTargetPost")
+  reports       Report[]
+  savedBy       SavedPost[]
 
   @@index([authorId, createdAt])
 }
 
-// ==========================================
-// COMMENT (SELF-REFERENCING FOR THREADS)
-// ==========================================
-
 model Comment {
-  id        String   @id @default(ulid())
+  id        String   @id @default(cuid())
   content   String
   authorId  String
   postId    String
   parentId  String?
   createdAt DateTime @default(now())
 
-  author  User @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post    Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  // Self relation (threaded replies)
-  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies Comment[] @relation("CommentReplies")
-
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("replies")
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
   likes         CommentLike[]
   notifications Notification[]
-  reports       Report[] @relation("ReportTargetComment")
+  reports       Report[]
 
-  @@index([postId])
   @@index([authorId])
   @@index([parentId])
-}
-
-// ==========================================
-// POST LIKE
-// ==========================================
-
-model Like {
-  id        String   @id @default(ulid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, postId])
   @@index([postId])
 }
 
-// ==========================================
-// COMMENT LIKE
-// ==========================================
-
 model CommentLike {
-  id        String   @id @default(ulid())
+  id        String   @id @default(cuid())
   commentId String
   userId    String
   createdAt DateTime @default(now())
@@ -135,87 +88,79 @@ model CommentLike {
   @@index([commentId])
 }
 
-// ==========================================
-// SAVED POSTS
-// ==========================================
-
-model SavedPost {
-  id        String   @id @default(ulid())
-  userId    String
-  postId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, postId])
-  @@index([userId])
-}
-
-// ==========================================
-// FOLLOW SYSTEM
-// ==========================================
-
 model Follows {
   followerId  String
   followingId String
   createdAt   DateTime @default(now())
 
-  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  follower  User @relation("Follows_followerIdToUser", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Follows_followingIdToUser", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
   @@index([followingId])
 }
 
-// ==========================================
-// NOTIFICATIONS
-// ==========================================
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
 
 model Notification {
-  id        String           @id @default(ulid())
-  userId    String           // receiver
-  creatorId String           // actor
+  id        String           @id @default(cuid())
+  userId    String
+  creatorId String
   type      NotificationType
   read      Boolean          @default(false)
   postId    String?
   commentId String?
   createdAt DateTime         @default(now())
 
-  user    User     @relation("userNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  creator User     @relation("notificationCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  creator User     @relation("Notification_creatorIdToUser", fields: [creatorId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user    User     @relation("Notification_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
 
-// ==========================================
-// REPORT SYSTEM (POST / USER / COMMENT)
-// ==========================================
-
 model Report {
-  id         String      @id @default(ulid())
+  id         String     @id @default(cuid())
   reporterId String
   type       ReportType
   reason     String?
   postId     String?
   userId     String?
   commentId  String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime   @default(now())
 
-  reporter User @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
-
-  post    Post?    @relation("ReportTargetPost", fields: [postId], references: [id], onDelete: Cascade)
-  user    User?    @relation("ReportTargetUser", fields: [userId], references: [id], onDelete: Cascade)
-  comment Comment? @relation("ReportTargetComment", fields: [commentId], references: [id], onDelete: Cascade)
+  comment  Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  post     Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter User     @relation("Report_reporterIdToUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User?    @relation("Report_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([reporterId])
 }
 
-// ==========================================
-// ENUMS
-// ==========================================
+model SavedPost {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
 
 enum NotificationType {
   LIKE_POST

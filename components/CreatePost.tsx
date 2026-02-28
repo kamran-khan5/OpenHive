@@ -18,8 +18,11 @@ import {
 } from "lucide-react";
 import { createPost } from "@/actions/post.action";
 import toast from "react-hot-toast";
+import Image from "next/image";
+
 
 type ModalType = "image" | "video" | "article" | null;
+
 
 export const CreatePost = () => {
   const { user } = useUser();
@@ -238,10 +241,12 @@ export const CreatePost = () => {
                   </label>
                 ) : (
                   <div className="relative">
-                    <img
+                    <Image
                       src={imagePreview}
                       alt="Preview"
                       className="w-full max-h-64 object-cover rounded-lg"
+                      width={400}
+                      height={300}
                     />
                     <Button
                       variant="destructive"
@@ -309,11 +314,7 @@ export const CreatePost = () => {
 
             {/* Footer */}
             <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setModalType(null)}
-                disabled={isPosting}
-              >
+              <Button variant="ghost" onClick={() => setModalType(null)} disabled={isPosting}>
                 Cancel
               </Button>
 
