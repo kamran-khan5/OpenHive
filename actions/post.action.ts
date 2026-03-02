@@ -237,7 +237,8 @@ export async function createComment(
   try {
     const userId = await getDbUserId();
     if (!userId) return { success: false, error: "Unauthorized" };
-    if (!content.trim()) return { success: false, error: "Content is required" };
+    if (!content.trim())
+      return { success: false, error: "Content is required" };
 
     const post = await prisma.post.findUnique({
       where: { id: postId },
@@ -246,59 +247,53 @@ export async function createComment(
 
     if (!post) return { success: false, error: "Post not found" };
 
-    const isReply = !!parentId;
+    // Create comment first
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        authorId: userId,
+        postId,
+        parentId: parentId ?? null,
+      },
+    });
 
-    const [comment] = await prisma.$transaction(async (tx) => {
-      const newComment = await tx.comment.create({
+    // Then handle notifications separately
+    if (!parentId && post.authorId !== userId) {
+      await prisma.notification.create({
         data: {
-          content,
-          authorId: userId,
+          type: "COMMENT",
+          userId: post.authorId,
+          creatorId: userId,
           postId,
-          parentId: parentId ?? null,
+          commentId: comment.id,
         },
       });
+    }
 
-      // Notify post author for top-level comments
-      if (!isReply && post.authorId !== userId) {
-        await tx.notification.create({
+    if (parentId) {
+      const parentComment = await prisma.comment.findUnique({
+        where: { id: parentId },
+        select: { authorId: true },
+      });
+
+      if (parentComment && parentComment.authorId !== userId) {
+        await prisma.notification.create({
           data: {
-            type: "COMMENT",
-            userId: post.authorId,
+            type: "REPLY",
+            userId: parentComment.authorId,
             creatorId: userId,
             postId,
-            commentId: newComment.id,
+            commentId: comment.id,
           },
         });
       }
-
-      // Notify parent comment author for replies
-      if (isReply) {
-        const parentComment = await tx.comment.findUnique({
-          where: { id: parentId },
-          select: { authorId: true },
-        });
-
-        if (parentComment && parentComment.authorId !== userId) {
-          await tx.notification.create({
-            data: {
-              type: "REPLY",
-              userId: parentComment.authorId,
-              creatorId: userId,
-              postId,
-              commentId: newComment.id,
-            },
-          });
-        }
-      }
-
-      return [newComment];
-    });
+    }
 
     revalidatePath("/");
     return { success: true, comment };
   } catch (error) {
     console.error("Failed to create comment:", error);
-    return { success: false, error: "Failed to create comment" };
+    return { success: false, error: (error as Error).message };
   }
 }
 

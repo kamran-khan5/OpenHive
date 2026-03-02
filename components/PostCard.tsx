@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 type Posts = Awaited<ReturnType<typeof getPosts>>;
 type Post = Posts[number];
@@ -66,6 +67,7 @@ interface CommentItemProps {
   postId: string;
   isAuthenticated: boolean;
   depth?: number;
+  onReplySuccess: () => void;
 }
 
 const CommentItem = ({
@@ -74,6 +76,7 @@ const CommentItem = ({
   postId,
   isAuthenticated,
   depth = 0,
+  onReplySuccess,
 }: CommentItemProps) => {
   const [replyText, setReplyText] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -104,6 +107,7 @@ const CommentItem = ({
         toast.success("Reply posted");
         setReplyText("");
         setShowReplyBox(false);
+        onReplySuccess();
       }
     } catch {
       toast.error("Failed to post reply");
@@ -113,7 +117,12 @@ const CommentItem = ({
   };
 
   return (
-    <div className={cn("group", depth > 0 && "ml-8 border-l-2 border-border/50 pl-4")}>
+    <div
+      className={cn(
+        "group",
+        depth > 0 && "ml-8 border-l-2 border-border/50 pl-4",
+      )}
+    >
       <div className="flex gap-3 py-3">
         <Link href={`/profile/${comment.author.username}`} className="shrink-0">
           <Avatar className="size-7">
@@ -153,7 +162,9 @@ const CommentItem = ({
                     : "text-muted-foreground hover:text-rose-400",
                 )}
               >
-                <HeartIcon className={cn("size-3.5", isLiked && "fill-rose-500")} />
+                <HeartIcon
+                  className={cn("size-3.5", isLiked && "fill-rose-500")}
+                />
                 {likeCount > 0 && <span>{likeCount}</span>}
               </button>
             )}
@@ -177,7 +188,8 @@ const CommentItem = ({
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-16 resize-none text-sm"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleReply();
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                    handleReply();
                 }}
               />
               <div className="flex flex-col gap-1.5">
@@ -214,6 +226,7 @@ const CommentItem = ({
           postId={postId}
           isAuthenticated={isAuthenticated}
           depth={depth + 1}
+          onReplySuccess={onReplySuccess}
         />
       ))}
     </div>
@@ -368,6 +381,7 @@ export const PostCard = ({
   dbUserId: string | null;
 }) => {
   const { user } = useUser();
+  const router = useRouter();
   const isAuthenticated = !!user;
   const isAuthor = dbUserId === post.author.id;
 
@@ -421,28 +435,35 @@ export const PostCard = ({
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || isCommenting) return;
-    try {
-      setIsCommenting(true);
-      const result = await createComment(post.id, newComment);
-      if (result?.success) {
-        toast.success("Comment posted");
-        setNewComment("");
-      }
-    } catch {
-      toast.error("Failed to add comment");
-    } finally {
-      setIsCommenting(false);
+  if (!newComment.trim() || isCommenting) return;
+  try {
+    setIsCommenting(true);
+    const result = await createComment(post.id, newComment);
+    if (result?.success) {
+      toast.success("Comment posted");
+      setNewComment("");
+      router.refresh();
+    } else {
+      toast.error(result?.error ?? "Failed to post comment"); // ← show actual error
     }
-  };
+  } catch {
+    toast.error("Failed to add comment");
+  } finally {
+    setIsCommenting(false);
+  }
+};
 
   const handleDeletePost = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
       const result = await deletePost(post.id);
-      if (result.success) toast.success("Post deleted");
-      else throw new Error(result.error);
+      if (result.success) {
+        toast.success("Post deleted");
+        router.refresh();
+      } else {
+        throw new Error(result.error);
+      }
     } catch {
       toast.error("Failed to delete post");
     } finally {
@@ -462,7 +483,10 @@ export const PostCard = ({
           {/* Header */}
           <div className="flex items-start justify-between px-4 pt-4 pb-0">
             <div className="flex items-start gap-3">
-              <Link href={`/profile/${post.author.username}`} className="shrink-0">
+              <Link
+                href={`/profile/${post.author.username}`}
+                className="shrink-0"
+              >
                 <Avatar className="size-10">
                   <AvatarImage src={post.author.image ?? ""} />
                   <AvatarFallback className="text-sm bg-muted font-medium">
@@ -497,8 +521,6 @@ export const PostCard = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 {isAuthor ? (
-                  // ✅ Fix: wrap DeleteAlertDialog in DropdownMenuItem with p-0.
-                  // DeleteAlertDialog renders its own full-width trigger button internally.
                   <DropdownMenuItem
                     onSelect={(e) => e.preventDefault()}
                     className="p-0 focus:bg-transparent"
@@ -554,7 +576,9 @@ export const PostCard = ({
                       hasLiked && "fill-rose-500 scale-110",
                     )}
                   />
-                  <span className="text-xs tabular-nums">{optimisticLikes}</span>
+                  <span className="text-xs tabular-nums">
+                    {optimisticLikes}
+                  </span>
                 </Button>
               ) : (
                 <SignInButton mode="modal">
@@ -564,7 +588,9 @@ export const PostCard = ({
                     className="gap-1.5 h-8 px-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10"
                   >
                     <HeartIcon className="size-4" />
-                    <span className="text-xs tabular-nums">{optimisticLikes}</span>
+                    <span className="text-xs tabular-nums">
+                      {optimisticLikes}
+                    </span>
                   </Button>
                 </SignInButton>
               )}
@@ -577,7 +603,9 @@ export const PostCard = ({
                 className="gap-1.5 h-8 px-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
               >
                 <MessageCircleIcon className="size-4" />
-                <span className="text-xs tabular-nums">{post._count.comments}</span>
+                <span className="text-xs tabular-nums">
+                  {post._count.comments}
+                </span>
               </Button>
             </div>
 
@@ -593,7 +621,9 @@ export const PostCard = ({
                   hasSaved && "text-amber-500",
                 )}
               >
-                <BookmarkIcon className={cn("size-4", hasSaved && "fill-amber-500")} />
+                <BookmarkIcon
+                  className={cn("size-4", hasSaved && "fill-amber-500")}
+                />
                 <span className="text-xs">{hasSaved ? "Saved" : "Save"}</span>
               </Button>
             ) : (
@@ -679,6 +709,7 @@ export const PostCard = ({
                       dbUserId={dbUserId}
                       postId={post.id}
                       isAuthenticated={isAuthenticated}
+                      onReplySuccess={() => router.refresh()}
                     />
                   ))}
                 </div>
