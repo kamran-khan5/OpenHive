@@ -19,27 +19,19 @@ import {
 import { createPost } from "@/actions/post.action";
 import toast from "react-hot-toast";
 import Image from "next/image";
-
-
-type ModalType = "image" | "video" | "article" | null;
-
+import { useCreatePostModal } from "@/context/CreatePostModal.context";
 
 export const CreatePost = () => {
   const { user } = useUser();
+  const { modalType, openModal, closeModal } = useCreatePostModal();
 
-  const [modalType, setModalType] = useState<ModalType>(null);
   const [content, setContent] = useState("");
-
-  // Preview state
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
-
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
-
   const [articleUrl, setArticleUrl] = useState("");
   const [articleTitle, setArticleTitle] = useState("");
-
   const [isPosting, setIsPosting] = useState(false);
 
   const resetState = () => {
@@ -50,10 +42,9 @@ export const CreatePost = () => {
     setVideoPreview(null);
     setArticleUrl("");
     setArticleTitle("");
-    setModalType(null);
+    closeModal();
   };
 
-  // Handle file selection
   const handleFileSelect = (file: File) => {
     if (modalType === "image") {
       setImageFile(file);
@@ -64,7 +55,6 @@ export const CreatePost = () => {
     }
   };
 
-  // Discard preview
   const handleDiscard = () => {
     if (modalType === "image") {
       setImageFile(null);
@@ -78,40 +68,40 @@ export const CreatePost = () => {
   const handleSubmit = async () => {
     if (!content.trim() && !imageFile && !videoFile && !articleUrl) return;
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
     try {
       setIsPosting(true);
 
-      // Upload files to Cloudinary
       let uploadedImageUrl = null;
       let uploadedVideoUrl = null;
 
       if (imageFile) {
         const formData = new FormData();
         formData.append("file", imageFile);
-        formData.append("upload_preset", "YOUR_UPLOAD_PRESET");
+        formData.append("upload_preset", uploadPreset!);
         const res = await fetch(
-          "https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload",
-          {
-            method: "POST",
-            body: formData,
-          },
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: "POST", body: formData },
         );
         const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.error?.message ?? "Image upload failed");
         uploadedImageUrl = data.secure_url;
       }
 
       if (videoFile) {
         const formData = new FormData();
         formData.append("file", videoFile);
-        formData.append("upload_preset", "YOUR_UPLOAD_PRESET");
+        formData.append("upload_preset", uploadPreset!);
         const res = await fetch(
-          "https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/video/upload",
-          {
-            method: "POST",
-            body: formData,
-          },
+          `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+          { method: "POST", body: formData },
         );
         const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.error?.message ?? "Video upload failed");
         uploadedVideoUrl = data.secure_url;
       }
 
@@ -131,31 +121,30 @@ export const CreatePost = () => {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to create post");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create post",
+      );
     } finally {
       setIsPosting(false);
     }
   };
-
-  const canPost =
-    content.trim() || imageFile || videoFile || articleUrl ? true : false;
+  const canPost = !!(content.trim() || imageFile || videoFile || articleUrl);
 
   if (!user) return null;
 
   return (
     <>
-      {/* Main Card */}
-      <Card className="mb-6">
+      {/* Main Card — hidden on mobile since MobileBottomBar handles post creation */}
+      <Card className="mb-6 hidden md:block">
         <CardContent className="pt-5 pb-4 space-y-4">
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
               <AvatarImage src={user.imageUrl} />
             </Avatar>
-
             <Button
               variant="outline"
               className="flex-1 justify-start text-muted-foreground rounded-full"
-              onClick={() => setModalType("image")}
+              onClick={() => openModal("image")}
             >
               What&apos;s on your mind, {user.firstName}?
             </Button>
@@ -164,25 +153,23 @@ export const CreatePost = () => {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="ghost"
-              onClick={() => setModalType("image")}
+              onClick={() => openModal("image")}
               className="gap-2"
             >
               <ImageIcon size={18} className="text-emerald-500" />
               Photo
             </Button>
-
             <Button
               variant="ghost"
-              onClick={() => setModalType("video")}
+              onClick={() => openModal("video")}
               className="gap-2"
             >
               <VideoIcon size={18} className="text-red-500" />
               Video
             </Button>
-
             <Button
               variant="ghost"
-              onClick={() => setModalType("article")}
+              onClick={() => openModal("article")}
               className="gap-2"
             >
               <FileTextIcon size={18} className="text-blue-500" />
@@ -193,7 +180,7 @@ export const CreatePost = () => {
       </Card>
 
       {/* Modal */}
-      <Dialog open={!!modalType} onOpenChange={() => setModalType(null)}>
+      <Dialog open={!!modalType} onOpenChange={closeModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -223,8 +210,6 @@ export const CreatePost = () => {
               disabled={isPosting}
             />
 
-            {/* Image Preview */}
-            {/* Image Upload / Preview */}
             {modalType === "image" && (
               <div className="space-y-2">
                 {!imagePreview ? (
@@ -261,7 +246,6 @@ export const CreatePost = () => {
               </div>
             )}
 
-            {/* Video Upload / Preview */}
             {modalType === "video" && (
               <div className="space-y-2">
                 {!videoPreview ? (
@@ -296,7 +280,6 @@ export const CreatePost = () => {
               </div>
             )}
 
-            {/* Article Inputs */}
             {modalType === "article" && (
               <div className="space-y-3">
                 <Input
@@ -312,12 +295,10 @@ export const CreatePost = () => {
               </div>
             )}
 
-            {/* Footer */}
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setModalType(null)} disabled={isPosting}>
+              <Button variant="ghost" onClick={closeModal} disabled={isPosting}>
                 Cancel
               </Button>
-
               <Button
                 onClick={handleSubmit}
                 disabled={!canPost || isPosting}

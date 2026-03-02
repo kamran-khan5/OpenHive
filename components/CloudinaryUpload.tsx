@@ -63,12 +63,12 @@ export const CloudinaryUpload = ({ type, value, onChange }: Props) => {
       </Button>
 
       {value && type === "image" && (
-        <img
+        <Image
           src={value}
           alt="Uploaded"
           className="rounded-xl max-h-60 object-cover"
-          // width={400}
-          // height={400}
+          width={400}
+          height={400}
         />
       )}
 

@@ -407,7 +407,7 @@ function ProfilePageClient({
         {/* TABS */}
         <Tabs defaultValue="posts" className="w-full">
           <div className="overflow-x-auto">
-            <TabsList className="min-w-max justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsList className="w-max mx-auto sm:w-full flex justify-center border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="posts"
                 className="flex items-center gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 font-semibold"

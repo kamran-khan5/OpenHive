@@ -8,6 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import { Toaster } from "react-hot-toast";
 import { RightSidebar } from "@/components/RightSidebar";
 import { MobileBottomBar } from "@/components/MobileBottomBar";
+import { CreatePostModalProvider } from "@/context/CreatePostModal.context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,31 +45,33 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="min-h-screen">
-              <Navbar />
-              <main className="py-8">
-                <div className="max-w-7xl mx-auto px-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    {/* Left Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3">
-                      <Sidebar />
-                    </div>
+            <CreatePostModalProvider>
+              <div className="min-h-screen">
+                <Navbar />
+                <main className="py-8">
+                  <div className="max-w-7xl mx-auto px-4">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {/* Left Sidebar */}
+                      <div className="hidden lg:block lg:col-span-3">
+                        <Sidebar />
+                      </div>
 
-                    {/* Main Content / Posts */}
-                    <div className="col-span-1 md:col-span-8 lg:col-span-6">
-                      {children}
-                    </div>
+                      {/* Main Content / Posts */}
+                      <div className="col-span-1 md:col-span-8 lg:col-span-6">
+                        {children}
+                      </div>
 
-                    {/* Right Sidebar */}
-                    <div className="hidden md:block lg:col-span-3 min-w-62.5 sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto">
-                      <RightSidebar />
+                      {/* Right Sidebar */}
+                      <div className="hidden md:block lg:col-span-3 min-w-62.5 sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto">
+                        <RightSidebar />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </main>
-              <MobileBottomBar />
-            </div>
-            <Toaster />
+                </main>
+                <MobileBottomBar />
+              </div>
+              <Toaster />
+            </CreatePostModalProvider>
           </ThemeProvider>
         </body>
       </html>
