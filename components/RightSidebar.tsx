@@ -102,7 +102,7 @@ export const RightSidebar = async () => {
           </Link>
         </div>
 
-        <p className="pt-2">© 2026 Glassit</p>
+        <p className="pt-2">© 2026 OPenHive</p>
       </div>
     </div>
   );
