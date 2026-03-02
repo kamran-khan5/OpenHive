@@ -8,7 +8,9 @@ import {
   toggleSavePost,
   toggleCommentLike,
   createReport,
+  deleteComment,
 } from "@/actions/post.action";
+import { toggleFollow } from "@/actions/user.action";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
@@ -28,6 +30,7 @@ import {
   CornerDownRightIcon,
   XIcon,
   ExternalLinkIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { Textarea } from "./ui/textarea";
 import { DeleteAlertDialog } from "./DeleteAlertDialog";
@@ -81,6 +84,7 @@ const CommentItem = ({
   const [replyText, setReplyText] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLiked, setIsLiked] = useState(
     comment.likes?.some((l) => l.userId === dbUserId) ?? false,
   );
@@ -113,6 +117,24 @@ const CommentItem = ({
       toast.error("Failed to post reply");
     } finally {
       setIsReplying(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteComment(comment.id);
+      if (result.success) {
+        toast.success("Comment deleted");
+        onReplySuccess();
+      } else {
+        toast.error(result.error ?? "Failed to delete comment");
+      }
+    } catch {
+      toast.error("Failed to delete comment");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -176,6 +198,17 @@ const CommentItem = ({
               >
                 <CornerDownRightIcon className="size-3.5" />
                 Reply
+              </button>
+            )}
+
+            {comment.author.id === dbUserId && (
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+              >
+                <Trash2Icon className="size-3.5" />
+                {isDeleting ? "Deleting…" : "Delete"}
               </button>
             )}
           </div>
@@ -401,6 +434,11 @@ export const PostCard = ({
     post.savedBy?.some((s) => s.userId === dbUserId) ?? false,
   );
 
+  const [isFollowingAuthor, setIsFollowingAuthor] = useState(
+    post.author.followers?.some((f) => f.followerId === dbUserId) ?? false,
+  );
+  const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleLike = async () => {
@@ -434,24 +472,45 @@ export const PostCard = ({
     }
   };
 
-  const handleAddComment = async () => {
-  if (!newComment.trim() || isCommenting) return;
-  try {
-    setIsCommenting(true);
-    const result = await createComment(post.id, newComment);
-    if (result?.success) {
-      toast.success("Comment posted");
-      setNewComment("");
-      router.refresh();
-    } else {
-      toast.error(result?.error ?? "Failed to post comment"); // ← show actual error
+  const handleFollow = async () => {
+    if (!isAuthenticated || isFollowingLoading) return;
+    const prev = isFollowingAuthor;
+    setIsFollowingAuthor((p) => !p);
+    setIsFollowingLoading(true);
+    try {
+      const result = await toggleFollow(post.author.id);
+      if (!result?.success) {
+        setIsFollowingAuthor(prev);
+        toast.error("Failed to update follow status");
+      } else {
+        toast.success(prev ? "Unfollowed" : "Now following");
+      }
+    } catch {
+      setIsFollowingAuthor(prev);
+      toast.error("Failed to update follow status");
+    } finally {
+      setIsFollowingLoading(false);
     }
-  } catch {
-    toast.error("Failed to add comment");
-  } finally {
-    setIsCommenting(false);
-  }
-};
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || isCommenting) return;
+    try {
+      setIsCommenting(true);
+      const result = await createComment(post.id, newComment);
+      if (result?.success) {
+        toast.success("Comment posted");
+        setNewComment("");
+        router.refresh();
+      } else {
+        toast.error(result?.error ?? "Failed to post comment");
+      }
+    } catch {
+      toast.error("Failed to add comment");
+    } finally {
+      setIsCommenting(false);
+    }
+  };
 
   const handleDeletePost = async () => {
     if (isDeleting) return;
@@ -494,13 +553,27 @@ export const PostCard = ({
                   </AvatarFallback>
                 </Avatar>
               </Link>
+
               <div>
-                <Link
-                  href={`/profile/${post.author.username}`}
-                  className="text-sm font-semibold hover:underline leading-tight"
-                >
-                  {post.author.name}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/profile/${post.author.username}`}
+                    className="text-sm font-semibold hover:underline leading-tight"
+                  >
+                    {post.author.name}
+                  </Link>
+
+                  {/* Follow button — only when authenticated, not own post, not already following */}
+                  {isAuthenticated && !isAuthor && !isFollowingAuthor && (
+                    <button
+                      onClick={handleFollow}
+                      disabled={isFollowingLoading}
+                      className="text-xs font-medium text-primary hover:text-primary/70 transition-colors disabled:opacity-50"
+                    >
+                      + Follow
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   @{post.author.username} ·{" "}
                   {formatDistanceToNow(new Date(post.createdAt))} ago
@@ -576,9 +649,7 @@ export const PostCard = ({
                       hasLiked && "fill-rose-500 scale-110",
                     )}
                   />
-                  <span className="text-xs tabular-nums">
-                    {optimisticLikes}
-                  </span>
+                  <span className="text-xs tabular-nums">{optimisticLikes}</span>
                 </Button>
               ) : (
                 <SignInButton mode="modal">
@@ -588,9 +659,7 @@ export const PostCard = ({
                     className="gap-1.5 h-8 px-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10"
                   >
                     <HeartIcon className="size-4" />
-                    <span className="text-xs tabular-nums">
-                      {optimisticLikes}
-                    </span>
+                    <span className="text-xs tabular-nums">{optimisticLikes}</span>
                   </Button>
                 </SignInButton>
               )}

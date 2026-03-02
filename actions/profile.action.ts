@@ -45,7 +45,9 @@ export async function getProfileByUsername(username: string) {
 
 const postInclude = {
   author: {
-    select: { id: true, name: true, username: true, image: true },
+    select: { id: true, name: true, username: true, image: true ,followers:{
+      select:{followerId:true}
+    }},
   },
   likes: {
     select: { userId: true },

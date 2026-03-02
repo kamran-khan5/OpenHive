@@ -54,7 +54,9 @@ export async function getPosts() {
       orderBy: { createdAt: "desc" },
       include: {
         author: {
-          select: { id: true, name: true, image: true, username: true },
+          select: { id: true, name: true, image: true, username: true ,followers:{
+            select:{followerId:true}
+          }},
         },
         likes: {
           select: { userId: true },
@@ -63,7 +65,7 @@ export async function getPosts() {
           select: { userId: true },
         },
         comments: {
-          where: { parentId: null }, // top-level only
+          where: { parentId: null },
           orderBy: { createdAt: "asc" },
           include: {
             author: {
@@ -115,8 +117,7 @@ export async function deletePost(postId: string) {
     });
 
     if (!post) return { success: false, error: "Post not found" };
-    if (post.authorId !== userId)
-      return { success: false, error: "Unauthorized" };
+    if (post.authorId !== userId) return { success: false, error: "Unauthorized" };
 
     await prisma.post.delete({ where: { id: postId } });
 
@@ -152,21 +153,18 @@ export async function toggleLike(postId: string) {
         where: { userId_postId: { userId, postId } },
       });
     } else {
-      await prisma.$transaction([
-        prisma.like.create({ data: { userId, postId } }),
-        ...(post.authorId !== userId
-          ? [
-              prisma.notification.create({
-                data: {
-                  type: "LIKE_POST",
-                  userId: post.authorId,
-                  creatorId: userId,
-                  postId,
-                },
-              }),
-            ]
-          : []),
-      ]);
+      await prisma.like.create({ data: { userId, postId } });
+
+      if (post.authorId !== userId) {
+        await prisma.notification.create({
+          data: {
+            type: "LIKE_POST",
+            userId: post.authorId,
+            creatorId: userId,
+            postId,
+          },
+        });
+      }
     }
 
     revalidatePath("/");
@@ -201,22 +199,19 @@ export async function toggleCommentLike(commentId: string) {
         where: { userId_commentId: { userId, commentId } },
       });
     } else {
-      await prisma.$transaction([
-        prisma.commentLike.create({ data: { userId, commentId } }),
-        ...(comment.authorId !== userId
-          ? [
-              prisma.notification.create({
-                data: {
-                  type: "LIKE_COMMENT",
-                  userId: comment.authorId,
-                  creatorId: userId,
-                  postId: comment.postId,
-                  commentId,
-                },
-              }),
-            ]
-          : []),
-      ]);
+      await prisma.commentLike.create({ data: { userId, commentId } });
+
+      if (comment.authorId !== userId) {
+        await prisma.notification.create({
+          data: {
+            type: "LIKE_COMMENT",
+            userId: comment.authorId,
+            creatorId: userId,
+            postId: comment.postId,
+            commentId,
+          },
+        });
+      }
     }
 
     revalidatePath("/");
@@ -237,8 +232,7 @@ export async function createComment(
   try {
     const userId = await getDbUserId();
     if (!userId) return { success: false, error: "Unauthorized" };
-    if (!content.trim())
-      return { success: false, error: "Content is required" };
+    if (!content.trim()) return { success: false, error: "Content is required" };
 
     const post = await prisma.post.findUnique({
       where: { id: postId },
@@ -247,7 +241,6 @@ export async function createComment(
 
     if (!post) return { success: false, error: "Post not found" };
 
-    // Create comment first
     const comment = await prisma.comment.create({
       data: {
         content,
@@ -257,7 +250,6 @@ export async function createComment(
       },
     });
 
-    // Then handle notifications separately
     if (!parentId && post.authorId !== userId) {
       await prisma.notification.create({
         data: {
@@ -294,6 +286,31 @@ export async function createComment(
   } catch (error) {
     console.error("Failed to create comment:", error);
     return { success: false, error: (error as Error).message };
+  }
+}
+
+// ─── Comment Delete ───────────────────────────────────────────────────────────
+
+export async function deleteComment(commentId: string) {
+  try {
+    const userId = await getDbUserId();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { authorId: true },
+    });
+
+    if (!comment) return { success: false, error: "Comment not found" };
+    if (comment.authorId !== userId) return { success: false, error: "Unauthorized" };
+
+    await prisma.comment.delete({ where: { id: commentId } });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete comment:", error);
+    return { success: false, error: "Failed to delete comment" };
   }
 }
 
