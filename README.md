@@ -9,7 +9,7 @@ A modern full-stack social media platform built with Next.js 15, featuring real-
 ![Cloudinary](https://img.shields.io/badge/Media-Cloudinary-3448c5?style=flat-square)
 ![Neon](https://img.shields.io/badge/Database-Neon-00e699?style=flat-square)
 
-**[🚀 Live Demo]: Coming Soon...
+**[🚀 Live Demo]: https://open-hive-mu.vercel.app/
 
 ---
 
